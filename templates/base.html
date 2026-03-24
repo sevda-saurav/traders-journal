@@ -1,0 +1,75 @@
+<!-- templates/base.html -->
+<!--
+  This is the BASE TEMPLATE — a shared layout that all other pages inherit.
+  Think of it like a picture frame: the frame (header, nav, footer) stays the same,
+  only the picture (page content) changes.
+  
+  We use Jinja2 templating — Flask's built-in template engine.
+  {{ variable }}  →  outputs a variable
+  block      →  defines a replaceable section
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- 'block title' lets child pages set their own title -->
+    <title>{% block title %}Trader's Journal{% endblock %}</title>
+
+    <!-- We'll add our CSS here in a later step -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+    <!-- ── Navigation Bar ── -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            📈 Trader's Journal
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <!-- We'll add more links (Dashboard, Logout) in later steps -->
+        </div>
+    </nav>
+
+    <!-- ── Flash Messages ── -->
+    <!--
+      Flask lets us send one-time messages (like "Login successful!").
+      These are called "flash messages". We display them here so they
+      appear on every page automatically.
+    -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-container">
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">
+            {{ message }}
+            <span class="flash-close" onclick="this.parentElement.remove()">✕</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- ── Main Content ── -->
+    <!-- 'block content' is where each page injects its unique content -->
+    <main class="main-content">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- ── Footer ── -->
+    <footer class="footer">
+        <p>© 2024 Trader's Journal. All rights reserved.</p>
+        <p>Built for learning, trading, and growing. 🚀</p>
+    </footer>
+
+    <!-- JavaScript goes at the bottom so the page loads faster -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

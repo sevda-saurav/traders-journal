@@ -1,0 +1,48 @@
+<!-- templates/index.html -->
+<!--
+  This page EXTENDS base.html — it inherits the nav, footer, flash messages.
+  We only define what goes inside the 'content' block.
+-->
+
+{% extends 'base.html' %}
+
+{% block title %}Welcome — Trader's Journal{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-content">
+        <h1>📈 Trader's Personal Journal</h1>
+        <p class="hero-subtitle">
+            Track your trades. Learn from your mistakes. Grow as a trader.
+        </p>
+        <div class="hero-buttons">
+            <!-- We'll make these links work in the next step (Authentication) -->
+            <a href="#" class="btn btn-primary">Get Started — Sign Up</a>
+            <a href="#" class="btn btn-secondary">Already a member? Log In</a>
+        </div>
+    </div>
+
+    <div class="features">
+        <div class="feature-card">
+            <span class="feature-icon">📝</span>
+            <h3>Log Trades</h3>
+            <p>Record every trade with full details — entry, exit, notes, and screenshots.</p>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">📊</span>
+            <h3>Analyze Performance</h3>
+            <p>See your win rate, total P&L, and track your progress over time.</p>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">🔒</span>
+            <h3>Secure & Private</h3>
+            <p>Your journal is private. Only you can see your trades.</p>
+        </div>
+        <div class="feature-card">
+            <span class="feature-icon">📤</span>
+            <h3>Export Data</h3>
+            <p>Download your trade history as CSV or PDF anytime.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
