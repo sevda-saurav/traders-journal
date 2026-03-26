@@ -1,0 +1,144 @@
+<!-- templates/trades/edit_trade.html -->
+{% extends 'base.html' %}
+{% block title %}Edit Trade — Trader's Journal{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <div class="form-card">
+
+        <div class="form-card-header">
+            <h2>✏️ Edit Trade</h2>
+            <p>Update your trade details</p>
+        </div>
+
+        <!--
+            The form is the same as add_trade.html
+            but with 'value="{{ trade.field }}"' to pre-fill existing data.
+            'trade' is the object passed from the edit_trade() route.
+        -->
+        <form action="" method="POST" enctype="multipart/form-data" class="trade-form">
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="market_name">Market *</label>
+                    <select id="market_name" name="market_name" required onchange="toggleCustomMarket(this)">
+                        <option value="">-- Select Market --</option>
+                        {% for m in ['Indian Stock Market','Crypto','Forex',
+                        'Commodity','Metal','Other'] %}
+                        <option value="{{ m }}" {% if trade.market_name==m %}selected{% endif %}>
+                            {{ m }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group" id="custom_market_group" {% if trade.market_name=='Other' %} style="display:block;" {% else %}
+                    style="display:none;" {% endif %}>
+                    <label for="custom_market">Specify Market</label>
+                    <input type="text" id="custom_market" name="custom_market" value="{{ trade.custom_market or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="trade_date">Date &amp; Time *</label>
+                    <input type="datetime-local" id="trade_date" name="trade_date"
+                        value="{{ trade.trade_date.strftime('%Y-%m-%dT%H:%M') }}" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="trade_type">Trade Type *</label>
+                    <select id="trade_type" name="trade_type" required>
+                        <option value="Long" {% if trade.trade_type=='Long' %}selected{% endif %}>
+                            📈 Long (Buy)
+                        </option>
+                        <option value="Short" {% if trade.trade_type=='Short' %}selected{% endif %}>
+                            📉 Short (Sell)
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="capital">Capital Used (₹) *</label>
+                    <input type="number" id="capital" name="capital" value="{{ trade.capital }}" step="0.01" min="0.01"
+                        required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="buy_value">Entry Price *</label>
+                    <input type="number" id="buy_value" name="buy_value" value="{{ trade.buy_value }}" step="0.01"
+                        min="0.01" required oninput="autoCalculate()">
+                </div>
+                <div class="form-group">
+                    <label for="sell_value">Exit Price *</label>
+                    <input type="number" id="sell_value" name="sell_value" value="{{ trade.sell_value }}" step="0.01"
+                        min="0.01" required oninput="autoCalculate()">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="target">Target Price *</label>
+                    <input type="number" id="target" name="target" value="{{ trade.target }}" step="0.01" min="0.01"
+                        required oninput="autoCalculate()">
+                </div>
+                <div class="form-group">
+                    <label for="stop_loss">Stop Loss *</label>
+                    <input type="number" id="stop_loss" name="stop_loss" value="{{ trade.stop_loss }}" step="0.01"
+                        min="0.01" required oninput="autoCalculate()">
+                </div>
+            </div>
+
+            <div class="calc-preview" id="calc_preview">
+                <div class="calc-item">
+                    <span class="calc-label">Estimated P&amp;L</span>
+                    <span class="calc-value" id="preview_pnl">
+                        {{ trade.profit_loss }}%
+                    </span>
+                </div>
+                <div class="calc-item">
+                    <span class="calc-label">Risk : Reward</span>
+                    <span class="calc-value" id="preview_rr">
+                        1 : {{ trade.risk_reward }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Notes / Analysis</label>
+                <textarea id="description" name="description" rows="4">
+                    {{- trade.description or '' -}}
+                </textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="screenshot">Update Screenshot</label>
+                {% if trade.screenshot %}
+                <div class="current-screenshot">
+                    <p style="color:#718096; font-size:0.8rem;">
+                        Current screenshot:
+                    </p>
+                    <img src="{{ url_for('static',
+                                   filename='uploads/' + trade.screenshot) }}" alt="Current chart"
+                        style="max-width:200px; border-radius:8px;">
+                </div>
+                {% endif %}
+                <input type="file" id="screenshot" name="screenshot" accept="image/*" onchange="previewImage(this)">
+                <small>Upload a new image to replace the current one.</small>
+                <img id="image_preview" src="#" alt="Preview" style="display:none; max-width:100%;
+                            margin-top:0.5rem; border-radius:8px;">
+            </div>
+
+            <div class="form-actions">
+                <a href="{{ url_for('view_trades') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    Update Trade ✅
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}

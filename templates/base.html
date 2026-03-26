@@ -28,11 +28,19 @@
     <!-- ── Navigation Bar ── -->
     <nav class="navbar">
         <div class="nav-brand">
-            📈 Trader's Journal
+            <a href="{{ url_for('index') }}">📈 Trader's Journal</a>
         </div>
         <div class="nav-links">
-            <a href="{{ url_for('index') }}">Home</a>
-            <!-- We'll add more links (Dashboard, Logout) in later steps -->
+            {% if current_user.is_authenticated %}
+            <!-- Show these links ONLY when logged in -->
+            <span class="nav-username">👤 {{ current_user.username }}</span>
+            <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('logout') }}" class="btn-nav-logout">Logout</a>
+            {% else %}
+            <!-- Show these links when NOT logged in -->
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('signup') }}" class="btn-nav-signup">Sign Up</a>
+            {% endif %}
         </div>
     </nav>
 

@@ -1,0 +1,89 @@
+<!-- templates/trades/view_trades.html -->
+{% extends 'base.html' %}
+{% block title %}My Trades — Trader's Journal{% endblock %}
+
+{% block content %}
+<div class="trades-page">
+
+    <!-- Header -->
+    <div class="trades-header">
+        <h2>📋 My Trades</h2>
+        <a href="{{ url_for('add_trade') }}" class="btn btn-primary">
+            ➕ Add Trade
+        </a>
+    </div>
+
+    <!-- Empty state -->
+    {% if not trades %}
+    <div class="empty-state">
+        <span class="empty-icon">📭</span>
+        <h3>No trades yet!</h3>
+        <p>Start by logging your first trade.</p>
+        <a href="{{ url_for('add_trade') }}" class="btn btn-primary mt-2">
+            Log First Trade
+        </a>
+    </div>
+
+    {% else %}
+    <!-- Trades Table -->
+    <div class="table-container">
+        <table class="trades-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Market</th>
+                    <th>Type</th>
+                    <th>Entry</th>
+                    <th>Exit</th>
+                    <th>Capital</th>
+                    <th>P&L %</th>
+                    <th>R:R</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for trade in trades %}
+                <tr class="{{ 'row-profit' if trade.is_profit else 'row-loss' }}">
+                    <td>{{ loop.index }}</td>
+                    <td>{{ trade.trade_date.strftime('%d %b %Y') }}</td>
+                    <td>{{ trade.market_display }}</td>
+                    <td>
+                        <span class="badge
+                                {{ 'badge-long' if trade.trade_type == 'Long'
+                                   else 'badge-short' }}">
+                            {{ trade.trade_type }}
+                        </span>
+                    </td>
+                    <td>₹{{ "%.2f"|format(trade.buy_value) }}</td>
+                    <td>₹{{ "%.2f"|format(trade.sell_value) }}</td>
+                    <td>₹{{ "%.2f"|format(trade.capital) }}</td>
+                    <td class="{{ 'profit-text' if trade.is_profit
+                                      else 'loss-text' }}">
+                        {{ "%.2f"|format(trade.profit_loss) }}%
+                    </td>
+                    <td>1 : {{ trade.risk_reward }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <a href="{{ url_for('edit_trade',
+                                           trade_id=trade.id) }}" class="btn-action btn-edit">Edit</a>
+
+                            <!-- Delete uses a form with POST for security -->
+                            <form action="{{ url_for('delete_trade',
+                                               trade_id=trade.id) }}" method="POST" style="display:inline;"
+                                onsubmit="return confirmDelete()">
+                                <button type="submit" class="btn-action btn-delete">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

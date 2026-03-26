@@ -1,0 +1,17 @@
+<!-- templates/dashboard.html -->
+<!-- Temporary simple dashboard — we'll build this properly in Step 4 -->
+{% extends 'base.html' %}
+
+{% block title %}Dashboard — Trader's Journal{% endblock %}
+
+{% block content %}
+<div class="dashboard-welcome">
+    <h1>👋 Welcome, {{ current_user.username }}!</h1>
+    <p>Your trading journal is ready. Let's start logging trades.</p>
+    <div class="mt-3">
+        <a href="{{ url_for('add_trade') }}" class="btn btn-primary">
+            ➕ Add Your First Trade
+        </a>
+    </div>
+</div>
+{% endblock %}

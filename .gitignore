@@ -1,6 +1,29 @@
+# .gitignore
+# ─────────────────────────────────────────────────────────
+# These files/folders will NOT be pushed to GitHub
+# ─────────────────────────────────────────────────────────
+
+# Virtual environment — never push this (too large, machine-specific)
 venv/
+
+# Database — contains real user data
+instance/
+*.db
+
+# Uploaded screenshots — user private files
+static/uploads/
+
+# Python cache files — auto-generated, not needed
 __pycache__/
 *.pyc
-instance/
+*.pyo
+
+# Environment variables file (if you create one later)
 .env
-*.db
+
+# VS Code settings
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
