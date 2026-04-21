@@ -1,17 +1,362 @@
-<!-- templates/dashboard.html -->
-<!-- Temporary simple dashboard — we'll build this properly in Step 4 -->
 {% extends 'base.html' %}
-
 {% block title %}Dashboard — Trader's Journal{% endblock %}
 
 {% block content %}
-<div class="dashboard-welcome">
-    <h1>👋 Welcome, {{ current_user.username }}!</h1>
-    <p>Your trading journal is ready. Let's start logging trades.</p>
-    <div class="mt-3">
-        <a href="{{ url_for('add_trade') }}" class="btn btn-primary">
-            ➕ Add Your First Trade
+<div class="dashboard-page">
+
+    <!-- ── Page Header ── -->
+    <div class="page-header">
+        <div>
+            <h2>📊 Dashboard</h2>
+            <p>Welcome back,
+                <strong>{{ current_user.username }}</strong>!
+                Here's your trading summary.
+            </p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('add_trade') }}" class="btn btn-primary">
+                ➕ Add Trade
+            </a>
+            {% if total_trades > 0 %}
+            <a href="{{ url_for('export_csv') }}" class="btn btn-export">
+                📄 CSV
+            </a>
+            <a href="{{ url_for('export_pdf') }}" class="btn btn-export">
+                📑 PDF
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── No Trades Yet ── -->
+    {% if total_trades == 0 %}
+    <div class="empty-state">
+        <span class="empty-icon">📭</span>
+        <h3>No trades logged yet!</h3>
+        <p>Start by logging your first trade to see your stats.</p>
+        <a href="{{ url_for('add_trade') }}" class="btn btn-primary mt-2">
+            Log First Trade
         </a>
     </div>
+
+    {% else %}
+
+    <!-- ── Summary Cards ── -->
+    <div class="stats-grid">
+
+        <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-info">
+                <span class="stat-label">Total Trades</span>
+                <span class="stat-value">{{ total_trades }}</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <span class="stat-label">Winning Trades</span>
+                <span class="stat-value profit-text">{{ total_wins }}</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">❌</div>
+            <div class="stat-info">
+                <span class="stat-label">Losing Trades</span>
+                <span class="stat-value loss-text">{{ total_losses }}</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-info">
+                <span class="stat-label">Win Rate</span>
+                <span class="stat-value
+                    {{ 'profit-text' if win_rate >= 50 else 'loss-text' }}">
+                    {{ win_rate }}%
+                </span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+                <span class="stat-label">Total P&amp;L</span>
+                <span class="stat-value
+                    {{ 'profit-text' if total_pnl >= 0 else 'loss-text' }}">
+                    {{ "%.2f"|format(total_pnl) }}%
+                </span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">⚖️</div>
+            <div class="stat-info">
+                <span class="stat-label">Avg Risk:Reward</span>
+                <span class="stat-value">1 : {{ avg_rr }}</span>
+            </div>
+        </div>
+
+        {% if best_trade %}
+        <div class="stat-card">
+            <div class="stat-icon">🏆</div>
+            <div class="stat-info">
+                <span class="stat-label">Best Trade</span>
+                <span class="stat-value profit-text">
+                    +{{ "%.2f"|format(best_trade.profit_loss) }}%
+                </span>
+                <span class="stat-sub">{{ best_trade.market_display }}</span>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if worst_trade %}
+        <div class="stat-card">
+            <div class="stat-icon">📉</div>
+            <div class="stat-info">
+                <span class="stat-label">Worst Trade</span>
+                <span class="stat-value loss-text">
+                    {{ "%.2f"|format(worst_trade.profit_loss) }}%
+                </span>
+                <span class="stat-sub">{{ worst_trade.market_display }}</span>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+
+    <!-- ── Charts Row ── -->
+    <div class="charts-row">
+
+        <!-- Line Chart — Cumulative P&L over time -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <h3>📈 Cumulative P&amp;L Over Time</h3>
+                <small>Running total of your P&amp;L percentage</small>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="pnlChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Pie Chart — Market Distribution -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <h3>🥧 Market Distribution</h3>
+                <small>Which markets you trade most</small>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="marketChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ── Recent Trades Table ── -->
+    <div class="recent-trades">
+        <div class="section-header">
+            <h3>🕐 Recent Trades</h3>
+            <a href="{{ url_for('view_trades') }}" class="view-all-link">View All →</a>
+        </div>
+
+        <div class="table-container">
+            <table class="trades-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Market</th>
+                        <th>Type</th>
+                        <th>Entry</th>
+                        <th>Exit</th>
+                        <th>P&amp;L %</th>
+                        <th>R:R</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trade in recent_trades %}
+                    <tr class="{{ 'row-profit' if trade.is_profit else 'row-loss' }}">
+                        <td>{{ trade.trade_date.strftime('%d %b %Y') }}</td>
+                        <td>{{ trade.market_display }}</td>
+                        <td>
+                            <span class="badge
+                                {{ 'badge-long' if trade.trade_type == 'Long'
+                                   else 'badge-short' }}">
+                                {{ trade.trade_type }}
+                            </span>
+                        </td>
+                        <td>₹{{ "%.2f"|format(trade.buy_value) }}</td>
+                        <td>₹{{ "%.2f"|format(trade.sell_value) }}</td>
+                        <td class="{{ 'profit-text' if trade.is_profit
+                                      else 'loss-text' }}">
+                            {{ "%.2f"|format(trade.profit_loss) }}%
+                        </td>
+                        <td>1 : {{ trade.risk_reward }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% endif %}
 </div>
+
+
+<!-- ── Chart.js Scripts ── -->
+<!--
+    We pass Python data to JavaScript using
+    hidden div data attributes — cleanest and
+    safest way to pass data from Flask to JS
+-->
+<div id="chart-data" data-labels='{{ chart_labels | tojson if chart_labels else "[]" }}'
+    data-values='{{ chart_values | tojson if chart_values else "[]" }}'
+    data-market-labels='{{ market_labels | tojson if market_labels else "[]" }}'
+    data-market-values='{{ market_values | tojson if market_values else "[]" }}' style="display:none;">
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+
+<script>
+    // Safe JSON parser — never crashes
+    function safeJsonParse(id, attr) {
+        try {
+            var el = document.getElementById(id);
+            var raw = el ? el.getAttribute(attr) : '[]';
+            return JSON.parse(raw || '[]');
+        } catch (e) {
+            console.warn('Parse error:', attr, e);
+            return [];
+        }
+    }
+
+    var chartLabels = safeJsonParse('chart-data', 'data-labels');
+    var chartValues = safeJsonParse('chart-data', 'data-values');
+    var marketLabels = safeJsonParse('chart-data', 'data-market-labels');
+    var marketValues = safeJsonParse('chart-data', 'data-market-values');
+
+    console.log('Labels:', chartLabels);
+    console.log('Values:', chartValues);
+    console.log('Markets:', marketLabels);
+    console.log('M.Values:', marketValues);
+
+    Chart.defaults.color = '#a0aec0';
+    Chart.defaults.borderColor = '#2d3748';
+
+    // ── Line Chart ────────────────────────────────────
+    var pnlCtx = document.getElementById('pnlChart');
+
+    if (pnlCtx && chartLabels.length > 0) {
+        var lastVal = chartValues[chartValues.length - 1] || 0;
+        var lineColor = lastVal >= 0 ? '#00d4aa' : '#fc4f4f';
+        var fillColor = lastVal >= 0
+            ? 'rgba(0,212,170,0.1)'
+            : 'rgba(252,79,79,0.1)';
+
+        new Chart(pnlCtx, {
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    label: 'Cumulative P&L %',
+                    data: chartValues,
+                    borderColor: lineColor,
+                    backgroundColor: fillColor,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ' ' + ctx.parsed.y + '%';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: '#1a1d27' },
+                        ticks: { maxTicksLimit: 8 }
+                    },
+                    y: {
+                        grid: { color: '#1a1d27' },
+                        ticks: {
+                            callback: function (val) {
+                                return val + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+    } else if (pnlCtx) {
+        pnlCtx.parentElement.innerHTML =
+            '<p style="color:#718096;text-align:center;padding:5rem 0;">No data yet</p>';
+    }
+
+
+    // ── Doughnut Chart ────────────────────────────────
+    var marketCtx = document.getElementById('marketChart');
+
+    if (marketCtx && marketLabels.length > 0) {
+        var colors = [
+            '#00d4aa', '#4facfe', '#f6c90e',
+            '#fc4f4f', '#a78bfa', '#fb923c',
+            '#34d399', '#60a5fa'
+        ];
+
+        new Chart(marketCtx, {
+            type: 'doughnut',
+            data: {
+                labels: marketLabels,
+                datasets: [{
+                    data: marketValues,
+                    backgroundColor: colors.slice(0, marketLabels.length),
+                    borderColor: '#0f1117',
+                    borderWidth: 3,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 16,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ' ' + ctx.label + ': '
+                                    + ctx.parsed + ' trades';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+    } else if (marketCtx) {
+        marketCtx.parentElement.innerHTML =
+            '<p style="color:#718096;text-align:center;padding:5rem 0;">No data yet</p>';
+    }
+</script>
+
 {% endblock %}

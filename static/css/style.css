@@ -613,3 +613,179 @@ a {
     color: #a0aec0;
     margin-bottom: 0.5rem;
 }
+
+/* ── Dashboard Page ── */
+.dashboard-page {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.page-header h2 {
+    font-size: 1.6rem;
+    color: #ffffff;
+    margin-bottom: 0.25rem;
+}
+
+.page-header p {
+    color: #718096;
+    font-size: 0.9rem;
+}
+
+/* ── Stats Grid ── */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background-color: #1a1d27;
+    border: 1px solid #2d3748;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    border-color: #00d4aa;
+}
+
+.stat-icon {
+    font-size: 1.75rem;
+    flex-shrink: 0;
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: #718096;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.stat-sub {
+    font-size: 0.75rem;
+    color: #718096;
+}
+
+/* ── Charts Row ── */
+.charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+    .charts-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart-card {
+    background-color: #1a1d27;
+    border: 1px solid #2d3748;
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.chart-card-header {
+    margin-bottom: 1rem;
+}
+
+.chart-card-header h3 {
+    font-size: 1rem;
+    color: #ffffff;
+    margin-bottom: 0.2rem;
+}
+
+.chart-card-header small {
+    color: #718096;
+    font-size: 0.8rem;
+}
+
+.chart-wrapper {
+    position: relative;
+    height: 250px;
+}
+
+/* ── Recent Trades Section ── */
+.recent-trades {
+    background-color: #1a1d27;
+    border: 1px solid #2d3748;
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.section-header h3 {
+    font-size: 1rem;
+    color: #ffffff;
+}
+
+.view-all-link {
+    color: #00d4aa;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: opacity 0.2s;
+}
+
+.view-all-link:hover {
+    opacity: 0.75;
+}
+
+/* ── Export Buttons ── */
+.header-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.btn-export {
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #2d3748;
+    background-color: #1a1d27;
+    color: #a0aec0;
+    transition: all 0.2s;
+    display: inline-block;
+}
+
+.btn-export:hover {
+    border-color: #00d4aa;
+    color: #00d4aa;
+    transform: translateY(-1px);
+}

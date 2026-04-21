@@ -22,6 +22,17 @@ from flask_login import (
 from config import Config
 from werkzeug.utils import secure_filename
 from datetime import datetime
+import csv
+import io
+from flask import Response
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.lib.units import cm
+from reportlab.platypus import (SimpleDocTemplate, Table,
+                                TableStyle, Paragraph,
+                                Spacer)
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
 # ── App Setup ─────────────────────────────────────────────
 app = Flask(__name__)
@@ -207,15 +218,435 @@ def logout():
 # ROUTE 5: Dashboard (Protected Page)
 # ─────────────────────────────────────────────────────────
 @app.route('/dashboard')
-@login_required   # ← This decorator protects the route
+@login_required
 def dashboard():
     """
-    Main dashboard — only accessible when logged in.
-    @login_required automatically redirects to /login if not authenticated.
-    We'll build the full dashboard in Step 4.
-    For now, just a simple welcome page.
+    Fetches all trades for current user and calculates
+    summary statistics to display on the dashboard.
     """
-    return render_template('dashboard.html')
+    from models import Trade
+
+    # ── Fetch all trades for current user ─────────────────
+    trades = Trade.query.filter_by(
+        user_id=current_user.id
+    ).order_by(Trade.trade_date.asc()).all()
+
+    # ── Basic Counts ──────────────────────────────────────
+    total_trades  = len(trades)
+
+    # List of all profitable trades
+    winning_trades = [t for t in trades if t.profit_loss and t.profit_loss > 0]
+
+    # List of all losing trades
+    losing_trades  = [t for t in trades if t.profit_loss and t.profit_loss < 0]
+
+    total_wins   = len(winning_trades)
+    total_losses = len(losing_trades)
+
+    # ── Win Rate ──────────────────────────────────────────
+    # Win Rate = (wins / total) * 100
+    # Round to 2 decimal places
+    win_rate = round((total_wins / total_trades) * 100, 2) if total_trades > 0 else 0
+
+    # ── Total Profit & Loss ───────────────────────────────
+    # Sum all P&L percentages
+    total_pnl = round(sum(t.profit_loss for t in trades if t.profit_loss), 2)
+
+    # ── Best and Worst Trade ──────────────────────────────
+    best_trade  = max(trades, key=lambda t: t.profit_loss or 0) if trades else None
+    worst_trade = min(trades, key=lambda t: t.profit_loss or 0) if trades else None
+
+    # ── Average Risk:Reward ───────────────────────────────
+    rr_values = [t.risk_reward for t in trades if t.risk_reward]
+    avg_rr    = round(sum(rr_values) / len(rr_values), 2) if rr_values else 0
+
+    # ── Recent 5 Trades ───────────────────────────────────
+    # Reverse to get newest first for the recent trades table
+    recent_trades = sorted(trades, key=lambda t: t.trade_date, reverse=True)[:5]
+
+    # ── Chart Data — P&L Over Time ────────────────────────
+    # We need two lists for the line chart:
+    # labels = dates,  values = P&L percentages
+    chart_labels = []
+    chart_values = []
+    cumulative   = 0  # running total P&L
+
+    for trade in trades:  # already sorted by date asc
+        chart_labels.append(trade.trade_date.strftime('%d %b'))
+        cumulative += trade.profit_loss or 0
+        chart_values.append(round(cumulative, 2))
+
+    # ── Chart Data — Market Distribution ──────────────────
+    # Count how many trades per market
+    # Example: {'Crypto': 5, 'Forex': 3, 'Indian Stock Market': 7}
+    market_counts = {}
+    for trade in trades:
+        market = trade.market_display
+        market_counts[market] = market_counts.get(market, 0) + 1
+
+    # ── Pass everything to the template ───────────────────
+    return render_template(
+        'dashboard.html',
+
+        # Stats
+        total_trades  = total_trades,
+        total_wins    = total_wins,
+        total_losses  = total_losses,
+        win_rate      = win_rate,
+        total_pnl     = total_pnl,
+        avg_rr        = avg_rr,
+        best_trade    = best_trade,
+        worst_trade   = worst_trade,
+
+        # Tables
+        recent_trades = recent_trades,
+
+        # Chart data (converted to lists for JavaScript)
+        chart_labels  = chart_labels,
+        chart_values  = chart_values,
+        market_labels = list(market_counts.keys()),
+        market_values = list(market_counts.values()),
+    )
+
+# ─────────────────────────────────────────────────────────
+# EXPORT ROUTE 6: CSV Export
+# ─────────────────────────────────────────────────────────
+@app.route('/export/csv')
+@login_required
+def export_csv():
+    """
+    Generates a CSV file of all trades for the current user
+    and sends it as a downloadable file.
+
+    We use Python's built-in 'csv' module.
+    io.StringIO() creates an in-memory text buffer —
+    like a virtual text file that never touches the disk.
+    """
+    from models import Trade
+
+    # Fetch all trades for current user
+    trades = Trade.query.filter_by(
+        user_id=current_user.id
+    ).order_by(Trade.trade_date.desc()).all()
+
+    # ── Create in-memory text buffer ──────────────────────
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # ── Write header row ──────────────────────────────────
+    writer.writerow([
+        'Date',
+        'Market',
+        'Trade Type',
+        'Entry Price',
+        'Exit Price',
+        'Target',
+        'Stop Loss',
+        'Capital Used',
+        'Profit/Loss %',
+        'Risk:Reward',
+        'Notes'
+    ])
+
+    # ── Write one row per trade ───────────────────────────
+    for trade in trades:
+        writer.writerow([
+            trade.trade_date.strftime('%Y-%m-%d %H:%M'),
+            trade.market_display,
+            trade.trade_type,
+            trade.buy_value,
+            trade.sell_value,
+            trade.target,
+            trade.stop_loss,
+            trade.capital,
+            f"{trade.profit_loss}%" if trade.profit_loss else 'N/A',
+            f"1:{trade.risk_reward}" if trade.risk_reward else 'N/A',
+            trade.description or ''
+        ])
+
+    # ── Move cursor to start of buffer ────────────────────
+    output.seek(0)
+
+    # ── Create filename with current date ─────────────────
+    filename = f"trades_{current_user.username}_{datetime.now().strftime('%Y%m%d')}.csv"
+
+    # ── Send file as download response ────────────────────
+    # 'text/csv' tells the browser this is a CSV file
+    # 'Content-Disposition: attachment' forces download
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': f'attachment; filename={filename}'
+        }
+    )
+
+
+# ─────────────────────────────────────────────────────────
+# EXPORT ROUTE 7: PDF Export
+# ─────────────────────────────────────────────────────────
+@app.route('/export/pdf')
+@login_required
+def export_pdf():
+    """
+    Generates a formatted PDF report of all trades
+    and sends it as a downloadable file.
+
+    We use ReportLab to build the PDF.
+    io.BytesIO() creates an in-memory binary buffer —
+    like a virtual binary file that never touches the disk.
+    """
+    from models import Trade
+
+    # Fetch all trades
+    trades = Trade.query.filter_by(
+        user_id=current_user.id
+    ).order_by(Trade.trade_date.desc()).all()
+
+    # ── Calculate summary stats for PDF header ─────────────
+    total_trades   = len(trades)
+    winning_trades = [t for t in trades if t.profit_loss and t.profit_loss > 0]
+    total_wins     = len(winning_trades)
+    win_rate       = round((total_wins / total_trades) * 100, 2) if total_trades > 0 else 0
+    total_pnl      = round(sum(t.profit_loss for t in trades if t.profit_loss), 2)
+
+    # ── Create in-memory binary buffer ────────────────────
+    buffer = io.BytesIO()
+
+    # ── Set up PDF document (landscape A4 for wide table) ─
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=1*cm,
+        leftMargin=1*cm,
+        topMargin=1.5*cm,
+        bottomMargin=1.5*cm
+    )
+
+    # ── Define styles ──────────────────────────────────────
+    styles = getSampleStyleSheet()
+
+    # Custom title style
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Title'],
+        fontSize=18,
+        textColor=colors.HexColor('#00d4aa'),
+        spaceAfter=6,
+        alignment=TA_CENTER
+    )
+
+    # Custom subtitle style
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#718096'),
+        spaceAfter=4,
+        alignment=TA_CENTER
+    )
+
+    # Custom normal style
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#e0e0e0'),
+        alignment=TA_LEFT
+    )
+
+    # ── Build PDF content list ─────────────────────────────
+    # ReportLab works by building a list of "flowables"
+    # (elements that flow down the page)
+    content = []
+
+    # ── Title ─────────────────────────────────────────────
+    content.append(Paragraph("📈 Trader's Personal Journal", title_style))
+    content.append(Paragraph(
+        f"Trade Report for {current_user.username} — "
+        f"Generated on {datetime.now().strftime('%d %B %Y')}",
+        subtitle_style
+    ))
+    content.append(Spacer(1, 0.4*cm))
+
+    # ── Summary Stats Row ─────────────────────────────────
+    summary_data = [
+        ['Total Trades', 'Winning Trades',
+         'Win Rate', 'Total P&L'],
+        [
+            str(total_trades),
+            str(total_wins),
+            f"{win_rate}%",
+            f"{'+' if total_pnl >= 0 else ''}{total_pnl}%"
+        ]
+    ]
+
+    summary_table = Table(
+        summary_data,
+        colWidths=[6*cm, 6*cm, 6*cm, 6*cm]
+    )
+
+    summary_table.setStyle(TableStyle([
+        # Header row
+        ('BACKGROUND',  (0,0), (-1,0), colors.HexColor('#1a1d27')),
+        ('TEXTCOLOR',   (0,0), (-1,0), colors.HexColor('#a0aec0')),
+        ('FONTNAME',    (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',    (0,0), (-1,0), 9),
+        ('ALIGN',       (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN',      (0,0), (-1,-1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1),
+            [colors.HexColor('#0f1117')]),
+        ('TEXTCOLOR',   (0,1), (-1,-1), colors.HexColor('#ffffff')),
+        ('FONTNAME',    (0,1), (-1,-1), 'Helvetica-Bold'),
+        ('FONTSIZE',    (0,1), (-1,-1), 14),
+        ('TOPPADDING',  (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 8),
+        ('GRID',        (0,0), (-1,-1), 0.5,
+            colors.HexColor('#2d3748')),
+        ('ROUNDEDCORNERS', [4]),
+    ]))
+
+    content.append(summary_table)
+    content.append(Spacer(1, 0.6*cm))
+
+    # ── Trades Table ──────────────────────────────────────
+    if trades:
+        # Table header
+        table_data = [[
+            'Date', 'Market', 'Type',
+            'Entry', 'Exit', 'Capital',
+            'P&L %', 'R:R', 'Notes'
+        ]]
+
+        # Table rows
+        for trade in trades:
+            # Truncate long notes to fit in cell
+            notes = (trade.description or '')[:40]
+            if len(trade.description or '') > 40:
+                notes += '...'
+
+            pnl_text = f"{trade.profit_loss}%" if trade.profit_loss else 'N/A'
+            rr_text  = f"1:{trade.risk_reward}" if trade.risk_reward else 'N/A'
+
+            table_data.append([
+                trade.trade_date.strftime('%d %b %Y'),
+                trade.market_display,
+                trade.trade_type,
+                f"Rs.{trade.buy_value}",
+                f"Rs.{trade.sell_value}",
+                f"Rs.{trade.capital}",
+                pnl_text,
+                rr_text,
+                notes
+            ])
+
+        # Column widths (must add up to page width)
+        col_widths = [
+            2.8*cm,  # Date
+            3.5*cm,  # Market
+            2.0*cm,  # Type
+            2.8*cm,  # Entry
+            2.8*cm,  # Exit
+            2.8*cm,  # Capital
+            2.0*cm,  # P&L
+            1.8*cm,  # R:R
+            5.5*cm,  # Notes
+        ]
+
+        trades_table = Table(
+            table_data,
+            colWidths=col_widths,
+            repeatRows=1  # Repeat header on each page
+        )
+
+        # Build row colors based on profit/loss
+        row_styles = [
+            # Header styles
+            ('BACKGROUND',   (0,0), (-1,0), colors.HexColor('#00d4aa')),
+            ('TEXTCOLOR',    (0,0), (-1,0), colors.HexColor('#0f1117')),
+            ('FONTNAME',     (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE',     (0,0), (-1,0), 8),
+            ('ALIGN',        (0,0), (-1,0), 'CENTER'),
+            ('TOPPADDING',   (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING',(0,0), (-1,-1), 6),
+            ('LEFTPADDING',  (0,0), (-1,-1), 6),
+            ('FONTSIZE',     (0,1), (-1,-1), 7.5),
+            ('GRID',         (0,0), (-1,-1), 0.3,
+                colors.HexColor('#2d3748')),
+            ('VALIGN',       (0,0), (-1,-1), 'MIDDLE'),
+        ]
+
+        # Color each data row based on profit or loss
+        for i, trade in enumerate(trades, start=1):
+            if trade.profit_loss and trade.profit_loss > 0:
+                # Profit row — subtle green
+                row_styles.append((
+                    'BACKGROUND',
+                    (0,i), (-1,i),
+                    colors.HexColor('#0d2b1e')
+                ))
+                row_styles.append((
+                    'TEXTCOLOR',
+                    (6,i), (6,i),
+                    colors.HexColor('#00d4aa')
+                ))
+            else:
+                # Loss row — subtle red
+                row_styles.append((
+                    'BACKGROUND',
+                    (0,i), (-1,i),
+                    colors.HexColor('#2b0d0d')
+                ))
+                row_styles.append((
+                    'TEXTCOLOR',
+                    (6,i), (6,i),
+                    colors.HexColor('#fc4f4f')
+                ))
+
+            # Normal text color for other columns
+            row_styles.append((
+                'TEXTCOLOR',
+                (0,i), (5,i),
+                colors.HexColor('#e0e0e0')
+            ))
+            row_styles.append((
+                'TEXTCOLOR',
+                (7,i), (8,i),
+                colors.HexColor('#e0e0e0')
+            ))
+
+        trades_table.setStyle(TableStyle(row_styles))
+        content.append(trades_table)
+
+    else:
+        content.append(Paragraph("No trades found.", normal_style))
+
+    # ── Footer note ───────────────────────────────────────
+    content.append(Spacer(1, 0.5*cm))
+    content.append(Paragraph(
+        f"© {datetime.now().year} Trader's Personal Journal — "
+        f"Confidential Report",
+        subtitle_style
+    ))
+
+    # ── Build PDF ─────────────────────────────────────────
+    doc.build(content)
+
+    # ── Move buffer cursor to start ───────────────────────
+    buffer.seek(0)
+
+    # ── Create filename ───────────────────────────────────
+    filename = (f"trades_{current_user.username}_"
+                f"{datetime.now().strftime('%Y%m%d')}.pdf")
+
+    # ── Send PDF as download ──────────────────────────────
+    return Response(
+        buffer.getvalue(),
+        mimetype='application/pdf',
+        headers={
+            'Content-Disposition': f'attachment; filename={filename}'
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────
