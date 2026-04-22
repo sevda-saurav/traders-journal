@@ -12,7 +12,6 @@
 <p align="center">
   <b>A full-stack web application for traders to log, track, and analyze their trades.</b>
 </p>
----
  
 ## 📌 Overview
  
