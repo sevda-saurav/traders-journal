@@ -1,62 +1,67 @@
-<!-- templates/base.html -->
-<!--
-  This is the BASE TEMPLATE — a shared layout that all other pages inherit.
-  Think of it like a picture frame: the frame (header, nav, footer) stays the same,
-  only the picture (page content) changes.
-  
-  We use Jinja2 templating — Flask's built-in template engine.
-  {{ variable }}  →  outputs a variable
-  block      →  defines a replaceable section
--->
-
+<!-- templates/base.html — Final polished version -->
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- 'block title' lets child pages set their own title -->
     <title>{% block title %}Trader's Journal{% endblock %}</title>
-
-    <!-- We'll add our CSS here in a later step -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 
 <body>
 
-    <!-- ── Navigation Bar ── -->
+    <!-- ── Navbar ── -->
     <nav class="navbar">
         <div class="nav-brand">
             <a href="{{ url_for('index') }}">📈 Trader's Journal</a>
         </div>
-        <div class="nav-links">
+
+        <!-- Hamburger button for mobile -->
+        <button class="nav-toggle" onclick="toggleNav()" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+        <div class="nav-links" id="nav-links">
             {% if current_user.is_authenticated %}
-            <!-- Show these links ONLY when logged in -->
-            <span class="nav-username">👤 {{ current_user.username }}</span>
-            <a href="{{ url_for('dashboard') }}">Dashboard</a>
-            <a href="{{ url_for('logout') }}" class="btn-nav-logout">Logout</a>
+            <a href="{{ url_for('dashboard') }}" class="{{ 'nav-active' if request.endpoint == 'dashboard' }}">
+                Dashboard
+            </a>
+            <a href="{{ url_for('view_trades') }}" class="{{ 'nav-active' if request.endpoint == 'view_trades' }}">
+                My Trades
+            </a>
+            <a href="{{ url_for('add_trade') }}" class="{{ 'nav-active' if request.endpoint == 'add_trade' }}">
+                ➕ Add Trade
+            </a>
+            <a href="{{ url_for('feedback') }}" class="{{ 'nav-active' if request.endpoint == 'feedback' }}">
+                Feedback
+            </a>
+            <span class="nav-divider">|</span>
+            <span class="nav-username">
+                👤 {{ current_user.username }}
+            </span>
+            <a href="{{ url_for('logout') }}" class="btn-nav-logout">
+                Logout
+            </a>
             {% else %}
-            <!-- Show these links when NOT logged in -->
             <a href="{{ url_for('login') }}">Login</a>
-            <a href="{{ url_for('signup') }}" class="btn-nav-signup">Sign Up</a>
+            <a href="{{ url_for('signup') }}" class="btn-nav-signup">
+                Sign Up
+            </a>
             {% endif %}
         </div>
     </nav>
 
     <!-- ── Flash Messages ── -->
-    <!--
-      Flask lets us send one-time messages (like "Login successful!").
-      These are called "flash messages". We display them here so they
-      appear on every page automatically.
-    -->
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
     <div class="flash-container">
         {% for category, message in messages %}
         <div class="flash flash-{{ category }}">
             {{ message }}
-            <span class="flash-close" onclick="this.parentElement.remove()">✕</span>
+            <span class="flash-close" onclick="this.parentElement.remove()">
+                ✕
+            </span>
         </div>
         {% endfor %}
     </div>
@@ -64,19 +69,39 @@
     {% endwith %}
 
     <!-- ── Main Content ── -->
-    <!-- 'block content' is where each page injects its unique content -->
     <main class="main-content">
-        {% block content %}
-        {% endblock %}
+        {% block content %}{% endblock %}
     </main>
 
     <!-- ── Footer ── -->
     <footer class="footer">
-        <p>© 2024 Trader's Journal. All rights reserved.</p>
-        <p>Built for learning, trading, and growing. 🚀</p>
+        <div class="footer-content">
+            <div class="footer-brand">
+                📈 Trader's Journal
+            </div>
+            <div class="footer-links">
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('view_trades') }}">My Trades</a>
+                <a href="{{ url_for('feedback') }}">Feedback</a>
+                {% else %}
+                <a href="{{ url_for('login') }}">Login</a>
+                <a href="{{ url_for('signup') }}">Sign Up</a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>
+                © {{ current_year }} Trader's Journal.
+                All rights reserved.
+            </p>
+            <p class="footer-sub">
+                Built with 🐍 Python + Flask |
+                Track smarter, trade better.
+            </p>
+        </div>
     </footer>
 
-    <!-- JavaScript goes at the bottom so the page loads faster -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 

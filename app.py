@@ -47,6 +47,18 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'info'
 
+# injects current_year automatically
+
+@app.context_processor
+def inject_globals():
+    """
+    context_processor injects variables into ALL templates
+    automatically — no need to pass them in every route.
+    """
+    return {
+        'current_year': datetime.now().year
+    }
+
 # ── Helper Function ───────────────────────────────────────
 def allowed_file(filename):
     """
@@ -885,12 +897,71 @@ def delete_trade(trade_id):
     flash('Trade deleted successfully.', 'info')
     return redirect(url_for('view_trades'))
 
+# ─────────────────────────────────────────────────────────
+# FEEDBACK ROUTE
+# ─────────────────────────────────────────────────────────
+@app.route('/feedback', methods=['GET', 'POST'])
+@login_required
+def feedback():
+    """
+    GET  → Show feedback form
+    POST → Save feedback to database
+    """
+    if request.method == 'POST':
+        from models import Feedback
+
+        # ── Read form data ─────────────────────────────
+        name     = request.form.get('name', '').strip()
+        email    = request.form.get('email', '').strip()
+        category = request.form.get('category', '')
+        message  = request.form.get('message', '').strip()
+
+        # ── Read and validate rating ───────────────────
+        try:
+            rating = int(request.form.get('rating', 5))
+            if rating < 1 or rating > 5:
+                rating = 5
+        except ValueError:
+            rating = 5
+
+        # ── Validation ────────────────────────────────
+        if not name or not email or not category or not message:
+            flash('Please fill in all required fields.', 'danger')
+            return render_template('feedback.html')
+
+        if len(message) < 10:
+            flash('Please write at least 10 characters.', 'danger')
+            return render_template('feedback.html')
+
+        # ── Save to database ──────────────────────────
+        new_feedback = Feedback(
+            user_id  = current_user.id,
+            name     = name,
+            email    = email,
+            category = category,
+            rating   = rating,
+            message  = message
+        )
+
+        db.session.add(new_feedback)
+        db.session.commit()
+
+        flash('Thank you for your feedback! 🙏', 'success')
+        return redirect(url_for('dashboard'))
+
+    # Pre-fill name and email from current user
+    return render_template(
+        'feedback.html',
+        username = current_user.username,
+        email    = current_user.email
+    )
+
 
 # ─────────────────────────────────────────────────────────
-# Run
+# RUN
 # ─────────────────────────────────────────────────────────
 if __name__ == '__main__':
     with app.app_context():
-        from models import User, Trade
+        from models import User, Trade, Feedback  # ← Add Feedback
         db.create_all()
     app.run(debug=True)
