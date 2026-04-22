@@ -10,8 +10,6 @@
  
 **A full-stack web application for traders to log, track, and analyze their trades.**
  
-[Features](#-features) • [Demo](#-screenshots) • [Installation](#-installation) • [Usage](#-usage) • [Tech Stack](#-tech-stack) • [Project Structure](#-project-structure)
- 
 </div>
 ---
  
